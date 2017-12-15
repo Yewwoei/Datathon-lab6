@@ -1,0 +1,13 @@
+#!/bin/bash
+
+cp "report.tex_template" "report.tex"
+
+(gsub '$PLOSS_TRAIN' $(ploss_train))
+(gsub '$LOSS_TRAIN' $(loss_train))
+(gsub '$LAG' $(lag))
+(gsub '$PLOSS' $(ploss))
+(gsub '$LOSS' $(loss))
+(gsub '$RATIO' $(skill_1))
+
+# Note -- gsub admits a 3rd parameter, which
+# if not present is assumed to be "report.tex" 

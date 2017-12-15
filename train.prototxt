@@ -1,0 +1,472 @@
+name: "dengue-2"
+
+layer {
+	name: "input"
+	type: "HDF5Data"
+	hdf5_data_param {
+		batch_size: 714
+		source: "train.txt"
+	}
+	top: "data"
+	top: "label"
+
+	include {
+		phase: TRAIN
+	}
+}
+
+# during TEST phase, use 714 + 178 values to get norm_data
+
+layer {
+	name: "input"
+	type: "HDF5Data"
+	hdf5_data_param {
+		batch_size: 892
+		source: "val.txt"
+	}
+	top: "data"
+	top: "label"
+	include {
+		phase: TEST
+	}
+}
+
+# normalising all input data 
+
+layer {
+	name: "norm"
+	type: "Norm"
+
+	bottom: "data"
+	top: "full_norm_data"
+	
+	norm_param {
+		# axis is set to the axis containing the variables
+		axis: 1
+		split: true
+		length: 714
+		once: true
+	}
+}
+
+# norming our labels
+
+layer {
+	name: "norm_label"
+	type: "Norm"
+
+	bottom: "label"
+	top: "full_norm_label"
+
+	norm_param {
+		axis: 1
+		split: true
+		length: 714
+		once: true
+	}
+}
+
+# SLICING FOR TEST PHASE to get the test data we want
+
+layer {
+	name: "data_slice"
+	type: "Slice"
+	bottom: "full_norm_data"
+	top: "data_junk"
+	top: "norm_data"
+	slice_param {
+		axis: 0
+		slice_point: 714
+	}
+
+	include {
+		phase: TEST
+	}
+}
+
+layer {
+	name: "label_slice"
+	type: "Slice"
+	bottom: "full_norm_label"
+	top: "label_junk"
+	top: "norm_label"
+	slice_param {
+		axis: 0
+		slice_point: 714
+	}
+
+	include {
+		phase: TEST
+	}
+}
+
+# Silencing junk from slicing in the TEST phase
+layer {
+	name: "test_silence"
+	type: "Silence"
+	bottom: "label_junk"
+	bottom: "data_junk"
+	include {
+		phase: TEST
+	}
+}
+
+# renaming blobs to ensure that the data still exists in the train phase
+
+layer {
+	name: "rename_data"
+	type: "Power"
+	bottom: "full_norm_data"
+	top: "norm_data"
+	include {
+		phase: TRAIN
+	}
+}
+
+layer {
+	name: "rename_label"
+	type: "Power"
+	bottom: "full_norm_label"
+	top: "norm_label"
+	include {
+		phase: TRAIN
+	}
+}
+
+
+# THE NEURAL NETWORK 
+
+layer {
+	name: "inner-product"
+	type: "InnerProduct"
+
+	bottom: "norm_data"
+	top: "ip"
+	inner_product_param {
+		num_output: ${ $ SIZE . }
+		axis: 1
+		weight_filler {
+			type: "xavier"
+		}
+		bias_filler {
+			type: "constant"
+			value: 0
+		}
+	}
+}
+
+# tanH layer that completes the perceptron
+layer {
+	name: "tanH"
+	type: "TanH"
+	bottom: "ip"
+	top: "t"
+}
+
+# linear combinator that takes in all the perceptron outputs to give a prediction
+layer {
+	name: "output"
+	bottom: "t"
+	top: "prediction"
+	type: "InnerProduct"
+	inner_product_param {
+		num_output: 1
+		axis: 1
+		weight_filler {
+			type: "xavier"
+		}
+		bias_filler {
+			type: "constant"
+			value: 0
+		}
+	}
+}
+
+# Slicing the labels to get the T+20 data set
+layer {
+	name: "label_slice"
+	type: "Slice"
+	bottom: "norm_label"
+	top: "junk_1"
+	top: "label_16"
+	top: "junk_2"
+	slice_param {
+		axis: 1
+		slice_point: 15
+		slice_point: 16
+	}
+}
+
+# Silencing unwanted labels
+layer {
+	name: "silence"
+	type: "Silence"
+	bottom: "junk_1"
+	bottom: "junk_2"
+}
+
+# Euclidean loss function layer
+
+layer {
+	name: "loss"
+	bottom: "prediction"
+	bottom: "label_16"
+	top: "loss"
+	type: "EuclideanLoss"
+}
+
+#### NEW STUFF FROM LAB 6 ############
+
+# GETTING ALL VALUES FOR MOMENTUM AND FORCE
+
+# MOMENTUM: T4 - T8
+# Force: T0 - 2*T4 + T8
+
+layer {
+	name: "slicer"
+	bottom: "prediction"
+	slice_param {
+		axis: 0
+		slice_point: 4
+	}
+	top: "junk_3"
+	top: "T4_left_truncated"
+	type: "Slice"
+}
+
+layer {
+	name: "slicer2"
+	bottom: "prediction"
+	slice_param {
+		axis: 0
+		slice_point: 8
+	}
+	top: "junk_7"
+	top: "T0"
+	type: "Slice"
+}
+
+layer {
+	name: "slicer"
+	bottom: "T4_left_truncated"
+	slice_param {
+		axis: 0
+		slice_point: 706
+	}
+	top: "T4"
+	top: "junk_4"
+	type: "Slice"
+	include {
+		phase: TRAIN
+	}
+}
+
+layer {
+	name: "slicer"
+	bottom: "T4_left_truncated"
+	slice_param {
+		axis: 0
+		slice_point: 170
+	}
+	top: "T4"
+	top: "junk_4"
+	type: "Slice"
+	include {
+		phase: TEST
+	}
+}
+
+# same, but for x8
+
+layer {
+	name: "slicer"
+	bottom: "prediction"
+	slice_param {
+		axis: 0
+		slice_point: 706
+	}
+	top: "T8"
+	top: "junk_8"
+	type: "Slice"
+	include: {
+		phase: TRAIN
+	}
+}
+layer {
+	name: "slicer"
+	bottom: "prediction"
+	slice_param {
+		axis: 0
+		slice_point: 170
+	}
+	top: "T8"
+	top: "junk_8"
+	type: "Slice"
+	include {
+		phase: TEST
+	}
+}
+
+layer {
+	name: "silence"
+	type: "Silence"
+	bottom: "junk_7"
+	bottom: "junk_3"
+	bottom: "junk_4"
+	bottom: "junk_8"
+}
+
+# Eltwise layer for element-wise subtraction
+# MOMENTUM from predictions
+layer {
+	name: "subtract_1"
+	type: "Eltwise"
+	bottom: "T4"
+	bottom: "T8"
+	top: "mom_pred"
+	eltwise_param {
+		coeff: 1 # X4  * 1
+		coeff: -1 # X8 * -1
+	}
+}
+
+# FORCE FROM predictions
+
+layer {
+	name: "force_pred"
+	type: "Eltwise"
+	bottom: "T0"
+	bottom: "T4"
+	bottom: "T8"
+	top: "force_pred"
+	eltwise_param {
+		coeff: 1
+		coeff: -2
+		coeff: 1
+	}
+}
+
+# label blob
+# GETTING THE VALUES FOR MOMENTUM AND FORCE from label_16 (TRAIN 714 TEST 178)
+# L16 --> Xt
+
+layer {
+	name: "slice_label"
+	type: "Slice"
+	bottom: "norm_label"
+	top: "junk1"
+	top: "lbl"
+	slice_param {
+		axis: 0
+		slice_point: 8
+	}
+}
+
+layer {
+	name: "L16"
+	type: "Slice"
+	bottom: "lbl"
+	top: "junk2"
+	top: "L16"
+	top: "junk3"
+	slice_param {
+		axis: 1
+		slice_point: 15
+		slice_point: 16
+	}
+}
+
+# l12  series --> Xt-4
+
+layer {
+	name: "L12"
+	type: "Slice"
+	bottom: "lbl"
+	top: "junk4"
+	top: "L12"
+	top: "junk5"
+	slice_param {
+		axis: 1
+		slice_point: 11
+		slice_point: 12
+	}
+}
+
+# l8 series --> Xt-8
+layer {
+	name: "L8"
+	type: "Slice"
+	bottom: "lbl"
+	top: "junk6"
+	top: "L8"
+	top: "junk7"
+	slice_param {
+		axis: 1
+		slice_point: 7
+		slice_point: 8
+	}
+}
+
+#Eltwise layer for labels
+
+# GETTING MOMENTUM LABEL
+
+layer {
+	name: "subtract_2"
+	type: "Eltwise"
+	bottom: "L8"
+	bottom: "L12"
+	top: "mom_label"
+	eltwise_param {
+		coeff: 1
+		coeff: -1
+	}
+}
+
+# GETTING FORCE LABEL
+
+layer {
+	name: "force_lbl"
+	type: "Eltwise"
+	bottom: "L16"
+	bottom: "L12"
+	bottom: "L8"
+	top: "force_label"
+	eltwise_param {
+		coeff: 1
+		coeff: -2
+		coeff: 1
+	}
+}
+
+layer {
+	name: "mom_loss"
+	bottom: "mom_pred"
+	bottom: "mom_label"
+	top: "junk8"
+	type: "EuclideanLoss"
+}
+
+layer {
+	name: "force_loss"
+	type: "EuclideanLoss"
+	top: "junk9"
+	bottom: "force_pred"
+	bottom: "force_label"
+}
+
+layer {
+	name: "silence"
+	type: "Silence"
+	bottom: "junk1"
+	bottom: "junk2"
+	bottom: "junk3"
+	bottom: "junk4"
+	bottom: "junk5"
+	bottom: "junk6"
+	bottom: "junk7"
+	bottom: "junk8"
+	bottom: "junk9"
+}
+
+## FORCE EXERCISE

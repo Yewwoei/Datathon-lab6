@@ -1,0 +1,126 @@
+name: "dengue-2"
+
+
+# during TEST phase, use 714 + 178 values to get norm_data
+
+layer {
+	name: "input"
+	type: "HDF5Data"
+	hdf5_data_param {
+		batch_size: 892
+		source: "val.txt"
+	}
+	top: "data"
+	top: "label"
+	include {
+		phase: TEST
+	}
+}
+
+# normalising all input data 
+
+layer {
+	name: "norm"
+	type: "Norm"
+
+	bottom: "data"
+	top: "norm_data"
+	
+	norm_param {
+		# axis is set to the axis containing the variables
+		axis: 1
+		split: true
+		length: 714
+		once: true
+	}
+}
+
+# norming our labels
+
+layer {
+	name: "norm_label"
+	type: "Norm"
+
+	bottom: "label"
+	top: "norm_label"
+
+	norm_param {
+		axis: 1
+		split: true
+		length: 714
+		once: true
+	}
+}
+
+
+# THE NEURAL NETWORK 
+
+layer {
+	name: "inner-product"
+	type: "InnerProduct"
+
+	bottom: "norm_data"
+	top: "ip"
+	inner_product_param {
+		num_output: ${ $ SIZE . }
+		axis: 1
+		weight_filler {
+			type: "xavier"
+		}
+		bias_filler {
+			type: "constant"
+			value: 0
+		}
+	}
+}
+
+# tanH layer that completes the perceptron
+layer {
+	name: "tanH"
+	type: "TanH"
+	bottom: "ip"
+	top: "t"
+}
+
+# linear combinator that takes in all the perceptron outputs to give a prediction
+layer {
+	name: "output"
+	bottom: "t"
+	top: "prediction_16"
+	type: "InnerProduct"
+	inner_product_param {
+		num_output: 1
+		axis: 1
+		weight_filler {
+			type: "xavier"
+		}
+		bias_filler {
+			type: "constant"
+			value: 0
+		}
+	}
+}
+
+# Slicing the labels to get the T+20 data set
+layer {
+	name: "label_slice"
+	type: "Slice"
+	bottom: "norm_label"
+	top: "junk_1"
+	top: "label_16"
+	top: "junk_2"
+	slice_param {
+		axis: 1
+		slice_point: 15
+		slice_point: 16
+	}
+}
+
+# Silencing unwanted labels
+layer {
+	name: "silence"
+	type: "Silence"
+	bottom: "junk_1"
+	bottom: "junk_2"
+}
+

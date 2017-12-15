@@ -1,0 +1,5 @@
+DATASET: dengue-2
+
+SIZE: #{ 8 32 128 512 1024 5 list as SIZE } ${ $ SIZE . }
+
+TEST_ITERS: 1

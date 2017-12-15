@@ -1,0 +1,28 @@
+\section{Experiment ${ $ name . }}
+
+Size: ${ $ SIZE . } \\
+Train loss: $LOSS_TRAIN \\
+Test Loss: $LOSS
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]
+{${ $ pwd (.) }figs/prediction.png}
+\caption{Prediction}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]
+{${ $ pwd (.) }figs/test_prediction.png}
+\caption{Prediction (test set) }
+\end{figure}
+
+\newpage
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]
+{${ $ pwd (.) }figs/loss-training.png}
+\caption{Training Loss}
+\end{figure}
+\newpage

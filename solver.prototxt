@@ -1,0 +1,15 @@
+net: "train.prototxt"
+
+base_lr: 0.001
+lr_policy: "fixed"
+
+test_iter: 1
+
+test_interval: 50
+display: 50
+
+max_iter: 2000
+snapshot: 2000
+snapshot_prefix: "dengue-2"
+
+solver_mode: CPU
